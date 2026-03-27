@@ -2,34 +2,90 @@
 
 ## Project Summary
 
-In this project you will build and explain a small music recommender system.
-
-Your goal is to:
-
-- Represent songs and a user "taste profile" as data
-- Design a scoring rule that turns that data into recommendations
-- Evaluate what your system gets right and wrong
-- Reflect on how this mirrors real world AI recommenders
-
-Replace this paragraph with your own summary of what your version does.
+In this project, I designed a simple content-based music recommender system that simulates how real-world platforms like Spotify or TikTok suggest content. The system represents both songs and user preferences as structured data and uses a weighted scoring rule to measure how well each song matches a user's taste. Songs are then ranked by score and the top results are returned as recommendations. The recommender works in two distinct stages: a **scoring rule** that evaluates each song individually against the user profile, and a **ranking rule** that sorts all scored songs and returns the top results — separate, independently improvable components that mirror how real platforms are built. This project highlights how recommendation systems transform raw input features into predictions while also exposing real limitations — including bias, filter bubbles, and lack of diversity.
 
 ---
 
 ## How The System Works
 
-Explain your design in plain language.
+Real-world recommenders like Spotify and YouTube work by learning what a user enjoys — through both explicit signals (likes, skips, saves) and implicit ones (listen time, replay rate) — and then finding items that match that pattern. Large platforms typically blend two strategies: collaborative filtering (finding users with similar behavior and recommending what they liked) and content-based filtering (matching a song's audio attributes directly to a user's stated taste profile).
 
-Some prompts to answer:
+This simulation focuses exclusively on the content-based approach, which requires no data from other users. Instead of learning from behavior, it compares the audio and emotional attributes of each song against a user's preferences using a weighted proximity formula. Features that are close to the user's ideal earn a high score; features that are far earn a low one. The final recommendation is simply the songs with the highest total scores. Every score is traceable back to a specific feature match or mismatch, making the system fully interpretable — a deliberate design priority.
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+### `Song` Features
 
-You can include a simple diagram or bullet list if helpful.
+Each `Song` object stores the following attributes drawn from `data/songs.csv`:
+
+| Feature | Type | Description |
+|---|---|---|
+| `id` | integer | Unique identifier |
+| `title` | string | Song name |
+| `artist` | string | Performing artist |
+| `genre` | categorical | Style category: pop, lofi, rock, ambient, jazz, synthwave, indie pop |
+| `mood` | categorical | Emotional tone: happy, chill, intense, relaxed, focused, moody |
+| `energy` | float 0–1 | Perceived intensity — 0.0 is calm, 1.0 is driving |
+| `valence` | float 0–1 | Musical positivity — 0.0 is dark/melancholic, 1.0 is euphoric |
+| `danceability` | float 0–1 | Rhythmic suitability for dancing |
+| `acousticness` | float 0–1 | Acoustic vs. electronic character |
+| `tempo_bpm` | integer | Beats per minute (60–152); normalized to 0–1 before scoring |
+
+### `UserProfile` Fields
+
+A `UserProfile` stores the user's preferred values for the same scoreable features:
+
+| Field | Type | Description |
+|---|---|---|
+| `preferred_genre` | categorical | The genre the user most wants to hear |
+| `preferred_mood` | categorical | The emotional tone the user is seeking |
+| `preferred_energy` | float 0–1 | Target energy level |
+| `preferred_valence` | float 0–1 | Target positivity level |
+| `preferred_danceability` | float 0–1 | Target danceability |
+| `preferred_acousticness` | float 0–1 | Target acousticness |
+| `preferred_tempo_bpm` | integer | Target tempo in BPM |
+
+### Scoring Rule
+
+Each song is scored against the user profile using a weighted sum of per-feature match scores.
+
+Categorical features (`genre`, `mood`) use a binary match:
+
+```
+genre_score = 1.0  if song.genre == user.preferred_genre  else  0.0
+mood_score  = 1.0  if song.mood  == user.preferred_mood   else  0.0
+```
+
+Numerical features use proximity scoring — rewarding closeness to the user's preference rather than higher or lower absolute values:
+
+```
+numeric_score = 1.0 - |song_value - user_preference|
+```
+
+Final weighted formula:
+
+```
+score = (genre_score    × 0.30)
+      + (energy_score   × 0.25)
+      + (mood_score     × 0.20)
+      + (valence_score  × 0.15)
+      + (dance_score    × 0.05)
+      + (acoustic_score × 0.05)
+```
+
+Weights sum to 1.0, so every score falls between 0.0 and 1.0. Genre carries the highest weight because a genre mismatch is the most jarring possible recommendation. Energy is second because it determines listen context (workout vs. sleep). Mood and valence follow as emotional fine-tuning, with danceability and acousticness as supporting tie-breakers.
+
+### Ranking Rule
+
+After every song is scored independently, the `Recommender` sorts the full catalog by score in descending order and returns the top-N results (default: 3). Sorting and filtering are handled separately from scoring — adding post-filters like "exclude already-heard songs" or changing the number of results requires no changes to the scoring formula.
+
+### Recommendation Pipeline
+
+1. Load song catalog and user profile
+2. For each song → apply scoring rule → produce score in [0.0, 1.0]
+3. Sort all (song, score) pairs by score descending
+4. Return top-N songs as recommendations
 
 ---
+
 
 ## Getting Started
 
