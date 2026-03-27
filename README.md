@@ -139,12 +139,16 @@ pip install -r requirements.txt
 python -m src.main
 ```
 
+### Sample Output
+
+![Recommender output for pop/happy profile](demo/recommender_output_pop_happy.png)
+
 ### Running Tests
 
 Run the starter tests with:
 
 ```bash
-pytest
+pytest tests/
 ```
 
 You can add more tests in `tests/test_recommender.py`.
