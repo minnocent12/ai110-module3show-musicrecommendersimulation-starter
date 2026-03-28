@@ -3,7 +3,8 @@ from dataclasses import dataclass
 import csv
 
 # Maximum score a song can receive from score_song()
-# Genre(2.0) + Mood(1.5) + Energy(1.0) = 4.5
+# WEIGHT SHIFT EXPERIMENT: Genre(1.0) + Mood(1.5) + Energy(2.0) = 4.5
+# Original weights:        Genre(2.0) + Mood(1.5) + Energy(1.0) = 4.5
 MAX_SCORE = 4.5
 
 @dataclass
@@ -136,10 +137,10 @@ def score_song(
         else user_prefs.get("energy", 0.5)
     )
 
-    # Step 1 — genre match (+2.0)
+    # Step 1 — genre match (+1.0)  [WEIGHT SHIFT: was +2.0]
     if song["genre"] == user_genre:
-        total += 2.0
-        reasons.append("genre match (+2.0)")
+        total += 1.0
+        reasons.append("genre match (+1.0)")
     else:
         reasons.append(f"genre mismatch: {song['genre']} ≠ {user_genre} (+0.0)")
 
@@ -150,11 +151,10 @@ def score_song(
     else:
         reasons.append(f"mood mismatch: {song['mood']} ≠ {user_mood} (+0.0)")
 
-    # Step 3 — energy proximity (0.0 – 1.0)
-    # Multiplying diff by 2 means the song must be within 0.5 of the
-    # target to earn any points — a deliberate steep penalty (see README).
+    # Step 3 — energy proximity (0.0 – 2.0)  [WEIGHT SHIFT: was 0.0–1.0]
+    # Max doubled to 2.0; cutoff kept at diff=0.5 → formula: max(0, 2.0 - 4×diff)
     diff       = abs(song["energy"] - user_energy)
-    energy_pts = max(0.0, 1.0 - 2 * diff)
+    energy_pts = max(0.0, 2.0 - 4 * diff)
     total     += energy_pts
     reasons.append(
         f"energy similarity: |{song['energy']} − {user_energy}| = "

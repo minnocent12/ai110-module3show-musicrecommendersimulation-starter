@@ -85,33 +85,129 @@ def main() -> None:
         print("❌ No songs found in catalog. Please check data/songs.csv")
         return
 
-    # --- 2. Define user profile ---
-    user_prefs = {
-        "genre":  "pop",
-        "mood":   "happy",
-        "energy": 0.8,
+    # --- 2. Define user profiles ---
+    # Each profile is a named dict so the header and experiments are readable.
+    # Add or edit profiles here to test different listener archetypes.
+    profiles = {
+        "High-Energy Pop": {
+            "genre":  "pop",
+            "mood":   "happy",
+            "energy": 0.9,
+        },
+        "Chill Lofi": {
+            "genre":  "lofi",
+            "mood":   "chill",
+            "energy": 0.38,
+        },
+        "Deep Intense Rock": {
+            "genre":  "rock",
+            "mood":   "intense",
+            "energy": 0.92,
+        },
+        "Late-Night Synthwave": {
+            "genre":  "synthwave",
+            "mood":   "moody",
+            "energy": 0.75,
+        },
+        "Sunday Morning Jazz": {
+            "genre":  "jazz",
+            "mood":   "relaxed",
+            "energy": 0.35,
+        },
+
+        # ------------------------------------------------------------------
+        # Adversarial / edge-case profiles
+        # Each one is designed to stress-test a specific assumption in the
+        # scoring formula.  Run these and study the output to see whether
+        # the results make sense.
+        # ------------------------------------------------------------------
+
+        # EDGE 1 — Mood that doesn't exist in the catalog.
+        # Expected behavior: mood score is permanently 0 for every song,
+        # so genre (+2.0) dominates and energy breaks all ties.
+        # If genre is also absent the maximum possible score drops to 1.0.
+        "Ghost Mood (mood not in catalog)": {
+            "genre":  "pop",
+            "mood":   "sad",        # no song in catalog has mood="sad"
+            "energy": 0.8,
+        },
+
+        # EDGE 2 — Genre that doesn't exist in the catalog.
+        # Expected behavior: genre score is permanently 0, max reachable
+        # score is 2.5. Ranking flips: mood then energy decide the winner.
+        "Genre Vacuum (genre not in catalog)": {
+            "genre":  "k-pop",      # no song in catalog has genre="k-pop"
+            "mood":   "happy",
+            "energy": 0.8,
+        },
+
+        # EDGE 3 — Genre substring trap.
+        # Catalog has "indie pop" but NOT "indie". Exact-match comparison
+        # means zero genre points even though it feels like it should match.
+        "Indie Substring Trap": {
+            "genre":  "indie",      # "indie pop" ≠ "indie" — no match
+            "mood":   "happy",
+            "energy": 0.76,
+        },
+
+        # EDGE 4 — Conflicting mood + energy.
+        # The only melancholic songs (Cathedral Light 0.22, Frozen Lake 0.19)
+        # have energy far below 0.95.  Mood match awards +1.5 but energy diff
+        # exceeds 0.5 so energy contribution = 0.  A high-energy non-melancholic
+        # song can outscore a true melancholic match purely on energy proximity.
+        "Sad Headbanger (mood vs energy conflict)": {
+            "genre":  "classical",
+            "mood":   "melancholic",
+            "energy": 0.95,         # melancholic songs live at 0.19–0.22
+        },
+
+        # EDGE 5 — energy floor (0.0).
+        # Formula: max(0, 1 − 2×diff). A song must have energy < 0.5 to earn
+        # ANY energy points at all.  Only 6 catalog songs qualify; the rest score
+        # exactly 0 on the energy axis, collapsing ranking to genre + mood.
+        "Ultra Quiet (energy floor)": {
+            "genre":  "ambient",
+            "mood":   "melancholic",
+            "energy": 0.0,          # pushes all songs above 0.5 to 0 energy pts
+        },
+
+        # EDGE 6 — energy ceiling (1.0).
+        # Only Iron Tide (energy=0.97) is within 0.5 of the target and earns
+        # meaningful energy points.  Tests whether a single song can dominate
+        # if it happens to sit at the extreme of the scale.
+        "Max Intensity (energy ceiling)": {
+            "genre":  "metal",
+            "mood":   "aggressive",
+            "energy": 1.0,          # only Iron Tide (0.97) is close
+        },
     }
 
-    # --- 3. Print session header ---
-    print_header(user_prefs, len(songs))
+    # --- 3. Run recommender for every profile ---
+    for profile_name, user_prefs in profiles.items():
 
-    # --- 4. Get recommendations (already sorted best-first by recommend_songs) ---
-    recommendations = recommend_songs(user_prefs, songs, k=TOP_K)
+        # Section banner so profiles are easy to tell apart in the terminal
+        print(f"\n{'=' * 48}")
+        print(f"  Listener: {profile_name}")
+        print(f"{'=' * 48}")
 
-    # --- 5. Guard: nothing to show ---
-    if not recommendations:
-        print("  No recommendations found. Check that songs.csv is loaded correctly.")
-        return
+        # Session header (catalog size + profile values)
+        print_header(user_prefs, len(songs))
 
-    print(f"  Top {len(recommendations)} recommendations\n")
+        # Get top-K recommendations for this profile
+        recommendations = recommend_songs(user_prefs, songs, k=TOP_K)
 
-    # --- 6. Print each recommendation card ---
-    for rank, (song, score, explanation) in enumerate(recommendations, start=1):
-        print_recommendation(rank, song, score, explanation)
+        if not recommendations:
+            print("  No recommendations found.\n")
+            continue
 
-    # --- 7. Scoring legend so the output is self-explanatory ---
-    print(f"\n  Scoring:  genre match +2.0  |  mood match +1.5  |  energy match up to +1.0")
-    print(f"  Maximum possible score: {MAX_SCORE:.1f}\n")
+        print(f"  Top {len(recommendations)} recommendations\n")
+
+        for rank, (song, score, explanation) in enumerate(recommendations, start=1):
+            print_recommendation(rank, song, score, explanation)
+
+        # Scoring legend once per profile so each block is self-contained
+        print(f"\n  Scoring:  genre match +2.0  |  mood match +1.5  |  energy match up to +1.0")
+        print(f"  Maximum possible score: {MAX_SCORE:.1f}\n")
 
 
 if __name__ == "__main__":
