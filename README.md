@@ -143,6 +143,103 @@ python -m src.main
 
 ![Recommender output for pop/happy profile](demo/recommender_output_pop_happy.png)
 
+The sections below show the terminal output for each profile, rendered as images.
+The first five are standard listener archetypes; the last six are adversarial profiles
+designed to stress-test the scoring logic.
+
+---
+
+#### 1. High-Energy Pop
+
+![High-Energy Pop](demo/profile_high_energy_pop.png)
+
+---
+
+#### 2. Chill Lofi
+
+![Chill Lofi](demo/profile_chill_lofi.png)
+
+---
+
+#### 3. Deep Intense Rock
+
+![Deep Intense Rock](demo/profile_deep_intense_rock.png)
+
+---
+
+#### 4. Late-Night Synthwave
+
+![Late-Night Synthwave](demo/profile_late_night_synthwave.png)
+
+> **Note:** Night Drive Loop hits the perfect score of 4.50 — an exact match on all three axes.
+> The #2 pick drops to 0.98 (only 22%), showing how dominant a single-song genre is when the catalog is sparse.
+
+---
+
+#### 5. Sunday Morning Jazz
+
+![Sunday Morning Jazz](demo/profile_sunday_morning_jazz.png)
+
+---
+
+#### 6. Ghost Mood — adversarial: mood not in catalog
+
+> **What this tests:** When `mood: "sad"` exists in no song, mood score is permanently 0.
+> Genre alone separates the top results; energy breaks every tie within the genre group.
+
+![Ghost Mood](demo/profile_ghost_mood_mood_not_in_catalog.png)
+
+---
+
+#### 7. Genre Vacuum — adversarial: genre not in catalog
+
+> **What this tests:** `genre: "k-pop"` matches nothing, so the max reachable score drops to 2.5.
+> The ranking shifts to mood-then-energy; the top songs look plausible but the explanations
+> reveal every card is a genre mismatch.
+
+![Genre Vacuum](demo/profile_genre_vacuum_genre_not_in_catalog.png)
+
+---
+
+#### 8. Indie Substring Trap — adversarial: partial genre name
+
+> **What this tests:** `genre: "indie"` feels like it should match `"indie pop"` but exact-string
+> comparison fails silently. Rooftop Lights (the only indie-adjacent song) wins on mood+energy
+> alone — its card shows `genre mismatch: indie pop ≠ indie (+0.0)`.
+
+![Indie Substring Trap](demo/profile_indie_substring_trap.png)
+
+---
+
+#### 9. Sad Headbanger — adversarial: conflicting mood + energy
+
+> **What this tests:** `mood: "melancholic"` + `energy: 0.95` are contradictory.
+> The only melancholic songs (Cathedral Light 0.22, Frozen Lake 0.19) have energy far from 0.95,
+> so mood match awards +1.5 but energy contribution is +0.00 (diff > 0.5).
+> Gym Hero and Iron Tide — neither classical nor melancholic — nearly outscore them on energy alone.
+
+![Sad Headbanger](demo/profile_sad_headbanger_mood_vs_energy_conflict.png)
+
+---
+
+#### 10. Ultra Quiet — adversarial: energy floor (0.0)
+
+> **What this tests:** `energy: 0.0` zeroes out every song whose energy ≥ 0.5 (13 of 20 songs).
+> No catalog song actually reaches 0.0 so even the best energy match (Frozen Lake at 0.19)
+> earns only +0.62. The ranking collapses to a two-feature system for most songs.
+
+![Ultra Quiet](demo/profile_ultra_quiet_energy_floor.png)
+
+---
+
+#### 11. Max Intensity — adversarial: energy ceiling (1.0)
+
+> **What this tests:** Only Iron Tide (energy=0.97) sits within 0.5 of the ceiling and earns
+> meaningful energy points. This tests whether one outlier song monopolizes the top slot.
+> Iron Tide wins cleanly at 4.44 — a perfect triple match.
+
+![Max Intensity](demo/profile_max_intensity_energy_ceiling.png)
+
 ### Running Tests
 
 Run the starter tests with:
@@ -298,3 +395,8 @@ A few sentences about what you learned:
 - How did building this change how you think about real music recommenders
 - Where do you think human judgment still matters, even if the model seems "smart"
 
+---
+
+## 🧑‍🏫 Tech Fellow Notes
+
+The core concept students needed to understand is that a recommender system does not "know" what sounds good, it only measures how closely a song's stored attributes match a user's stored preferences, and those measurements are only as meaningful as the features and weights chosen by the designer. Students most commonly struggled at the point where partial matches started competing: once the perfect song is found, the ranking felt obvious, but explaining *why* Gym Hero keeps appearing at #2 for a Happy Pop listener, despite feeling sonically wrong; required them to trace the exact math and confront the fact that two matched signals can outweigh one mismatched one regardless of which mismatch matters more. AI tools were genuinely helpful for explaining the energy formula, generating test profiles, and surfacing edge cases quickly, but they were misleading when students asked whether a weight change would "fix" the recommendations,  the AI would confirm a change made sense in theory without flagging that a 20-song catalog is too small for weight sensitivity to actually show up in the top result. To guide a student without giving the answer, ask them: "If you removed the genre score entirely and only used mood and energy, which songs would appear in the top five for the High-Energy Pop profile, and does that list feel more or less accurate than what you got before?"
